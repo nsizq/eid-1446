@@ -1,81 +1,82 @@
-const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
-const cors = require("cors");
+require("dotenv").config(); // This loads the .env file
+console.log(process.env.MONGO_URI); // This will log the Mongo URI if it's loaded properly
 
+// Import required modules
+const express = require("express");
+const mongoose = require("mongoose");
+
+// Create an Express app
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // Default to 3000 if not provided
 
 // Middleware
-app.use(express.json());
-app.use(cors());
-app.use(express.static("public")); // Serve frontend files
+app.use(express.json()); // Parse JSON request bodies
+app.use(cors()); // Enable Cross-Origin Resource Sharing
 
-// Database setup
-const db = new sqlite3.Database("./players.db", (err) => {
-  if (err) console.error(err.message);
-  else console.log("Connected to SQLite database.");
+// MongoDB Connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
+
+// Define a Player model using MongoDB schema
+const playerSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  receiver: { type: String, required: true },
 });
 
-// Allowed players
-const allowedPlayers = ["Omar", "Abdullah", "Salman", "Mohammed", "Aroob"];
-
-// Create table if not exists
-db.run(`CREATE TABLE IF NOT EXISTS players (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE,
-    email TEXT UNIQUE,
-    receiver TEXT
-)`);
+const Player = mongoose.model("Player", playerSchema);
 
 // Register a new player
-app.post("/register", (req, res) => {
-  const { name } = req.body;
+app.post("/register", async (req, res) => {
+  const { name, email } = req.body;
+
+  const allowedPlayers = ["Omar", "Abdullah", "Salman", "Mohammed", "Aroob"];
 
   // Ensure name is in the allowed list
   if (!allowedPlayers.includes(name)) {
     return res.status(400).json({ error: "اسم غير مسموح به!" });
   }
 
-  // Check if player already registered
-  db.get("SELECT * FROM players WHERE name = ?", [name], (err, row) => {
-    if (row) return res.status(400).json({ error: "تم التسجيل مسبقاً!" });
+  try {
+    // Check if player already registered
+    const existingPlayer = await Player.findOne({ name });
+    if (existingPlayer) {
+      return res.status(400).json({ error: "تم التسجيل مسبقاً!" });
+    }
 
     // Get registered players
-    db.all("SELECT * FROM players", [], (err, players) => {
-      if (err) return res.status(500).json({ error: err.message });
+    const players = await Player.find();
 
-      // Find available receivers
-      const assignedReceivers = players.map((p) => p.receiver);
-      const availableReceivers = allowedPlayers.filter(
-        (n) => !assignedReceivers.includes(n) && n !== name
-      );
+    // Find available receivers
+    const assignedReceivers = players.map((p) => p.receiver);
+    const availableReceivers = allowedPlayers.filter(
+      (n) => !assignedReceivers.includes(n) && n !== name
+    );
 
-      if (availableReceivers.length === 0) {
-        return res.status(400).json({ error: "تم توزيع جميع الأسماء!" });
-      }
+    if (availableReceivers.length === 0) {
+      return res.status(400).json({ error: "تم توزيع جميع الأسماء!" });
+    }
 
-      // Assign a random receiver
-      const receiver =
-        availableReceivers[
-          Math.floor(Math.random() * availableReceivers.length)
-        ];
+    // Assign a random receiver
+    const receiver =
+      availableReceivers[Math.floor(Math.random() * availableReceivers.length)];
 
-      // Store in database
-      db.run(
-        "INSERT INTO players (name, receiver) VALUES (?, ?)",
-        [name, receiver],
-        (err) => {
-          if (err) return res.status(500).json({ error: err.message });
+    // Store in database
+    const newPlayer = new Player({ name, email, receiver });
+    await newPlayer.save();
 
-          // Respond with success and receiver
-          res.json({
-            message: `تم تسجيلك بنجاح! الشخص الذي ستهاديه هو: ${receiver}`,
-          });
-        }
-      );
+    // Respond with success message
+    res.json({
+      message: `تم تسجيلك بنجاح! الشخص الذي ستهاديه هو: ${receiver}`,
     });
-  });
+  } catch (err) {
+    console.error("Error registering player:", err);
+    res.status(500).json({ error: "حدث خطأ في التسجيل!" });
+  }
 });
+app.use(express.static("public")); // 'public' folder where your static files are
 
 // Start the server
 app.listen(PORT, () =>
