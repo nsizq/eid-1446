@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Success</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎉 تم الإرسال بنجاح! 🎉</h1>
+      <p id="successMessage"></p>
+    </div>
+
+    <script>
+      // Retrieve the success message from localStorage
+      const successMessage = document.getElementById("successMessage");
+      const message = localStorage.getItem("receiver");
+      successMessage.textContent = message ? message : "Something went wrong!";
+    </script>
+  </body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secret Eid</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>اخواني الاعزاء</h1>
+      <p>!اكتب اسمك واعرف مين راح تهدي</p>
+      <input
+        type="text"
+        id="nameInput"
+        placeholder="اسمك (بدون مسافات)"
+        required
+      />
+      <button id="submitBtn" disabled>ارسل</button>
+      <p id="message"></p>
+    </div>
+
+    <script>
+      const nameInput = document.getElementById("nameInput");
+      const submitBtn = document.getElementById("submitBtn");
+      const message = document.getElementById("message");
+
+      // Enable button only when both fields have input
+      function validateInputs() {
+        submitBtn.disabled = !nameInput.value.trim();
+      }
+
+      nameInput.addEventListener("input", validateInputs);
+
+      submitBtn.addEventListener("click", async () => {
+        const name = nameInput.value.trim();
+
+        if (!name) return;
+
+        try {
+          const response = await fetch("http://localhost:3000/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            // Redirect to success page and pass the receiver
+            localStorage.setItem("receiver", data.message); // Save receiver in local storage
+            window.location.href = "success.html";
+          } else {
+            message.textContent = data.message;
+            message.style.color = "red";
+          }
+        } catch (error) {
+          message.textContent = "Something went wrong.";
+          message.style.color = "red";
+        }
+      });
+    </script>
+  </body>
+</html>
